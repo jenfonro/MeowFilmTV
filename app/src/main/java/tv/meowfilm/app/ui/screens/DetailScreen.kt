@@ -109,6 +109,9 @@ fun DetailScreen(
     var playUrl by rememberSaveable(title) { mutableStateOf("") }
     var playHeaders by remember(title) { mutableStateOf<Map<String, String>>(emptyMap()) }
     var playError by rememberSaveable(title) { mutableStateOf("") }
+    var detailActor by rememberSaveable(title) { mutableStateOf("") }
+    var detailContent by rememberSaveable(title) { mutableStateOf("") }
+    var showPlayInfo by rememberSaveable(title) { mutableStateOf(false) }
 
     val availableSources = payload.sources
     val currentSource = availableSources.getOrNull(selectedSource.intValue)
@@ -168,6 +171,8 @@ fun DetailScreen(
         }
 
         val d = result.getOrThrow()
+        detailActor = d.actor
+        detailContent = d.content
         val lines = parsePlayLines(d.playFrom, d.playUrl, cleanRules, episodeRules)
         playLines = lines
         detailLoading = false
@@ -264,6 +269,11 @@ fun DetailScreen(
                 title = title,
                 accent = accent,
                 selectedSourceLabel = currentSource?.siteName ?: "换源",
+                actor = detailActor,
+                content = detailContent,
+                showPlayInfo = showPlayInfo,
+                playInfoLineLabel = (playLines.getOrNull(selectedLine.intValue)?.flag).orEmpty(),
+                playInfoUrl = playUrl,
                 isFavorite = favorite,
                 onToggleFavorite = { favorite = !favorite },
                 onPickSource = { if (canSwitchSource) showSourcePicker = true },
@@ -327,6 +337,8 @@ fun DetailScreen(
                             selectedEpisode.intValue = 0
                             selectedRange.intValue = 0
                         },
+                        showPlayInfo = showPlayInfo,
+                        onTogglePlayInfo = { showPlayInfo = !showPlayInfo },
                         descending = descending,
                         onToggleDescending = {
                             descending = !descending
@@ -345,6 +357,8 @@ fun DetailScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     EpisodeGrid(
                         accent = accent,
@@ -402,6 +416,11 @@ private fun TopLayout(
     title: String,
     accent: Color,
     selectedSourceLabel: String,
+    actor: String,
+    content: String,
+    showPlayInfo: Boolean,
+    playInfoLineLabel: String,
+    playInfoUrl: String,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onPickSource: () -> Unit,
@@ -442,17 +461,36 @@ private fun TopLayout(
             ) {
                 MetaText(text = "站点：$selectedSourceLabel")
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MetaText(text = "主演：示例A / 示例B")
+            val a = actor.trim()
+            if (a.isNotBlank()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MetaText(text = "主演：$a")
+                }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MetaText(text = "导演：示例导演")
+
+            if (showPlayInfo) {
+                val lineLabel = playInfoLineLabel.trim()
+                if (lineLabel.isNotBlank()) {
+                    MetaText(text = "网盘源：$lineLabel")
+                }
+                val u = playInfoUrl.trim()
+                if (u.isNotBlank()) {
+                    MetaText(text = "播放地址：$u")
+                }
+            }
+
+            val desc = content.trim().replace("\n", " ").replace("\t", " ")
+            if (desc.isNotBlank()) {
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -536,6 +574,8 @@ private fun EpisodeToolbar(
     showRawToggle: Boolean,
     showRaw: Boolean,
     onToggleRaw: () -> Unit,
+    showPlayInfo: Boolean,
+    onTogglePlayInfo: () -> Unit,
     descending: Boolean,
     onToggleDescending: () -> Unit,
     ranges: List<String>,
@@ -560,11 +600,16 @@ private fun EpisodeToolbar(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (showRawToggle) {
                 SmallPill(
-                    text = if (showRaw) "返回选集" else "原始",
+                    text = if (showRaw) "返回选集" else "原始列表",
                     selected = showRaw,
                     onClick = onToggleRaw,
                 )
             }
+            SmallPill(
+                text = "播放信息",
+                selected = showPlayInfo,
+                onClick = onTogglePlayInfo,
+            )
             SmallPill(
                 text = if (descending) "倒序" else "正序",
                 selected = descending,
