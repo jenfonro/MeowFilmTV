@@ -161,11 +161,11 @@ private fun TopTab(
             }
             .focusable()
             .padding(horizontal = 2.dp),
-        contentAlignment = Alignment.BottomStart,
+        contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
             modifier = Modifier.padding(bottom = 2.dp),
-            horizontalAlignment = Alignment.Start,
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom,
         ) {
             Text(

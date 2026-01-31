@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -422,15 +423,47 @@ fun DetailScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        if (playUrl.trim().isNotBlank()) {
-                            Text(
-                                text = "播放地址：${playUrl.trim()}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.78f),
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        val urlText = playUrl.trim().ifBlank { "暂无播放地址" }
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0x22000000),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp,
+                        ) {
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 120.dp, max = 240.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = "播放地址",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = Color.White.copy(alpha = 0.82f),
+                                )
+                                SelectionContainer {
+                                    Text(
+                                        text = urlText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.92f),
+                                    )
+                                }
+                            }
                         }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        val headersText =
+                            if (playHeaders.isEmpty()) {
+                                "（无）"
+                            } else {
+                                playHeaders.entries
+                                    .sortedBy { it.key.lowercase() }
+                                    .joinToString("\n") { (k, v) -> "${k.trim()}: ${v.trim()}" }
+                            }
                         if (playError.trim().isNotBlank()) {
                             Text(
                                 text = "错误：${playError.trim()}",
@@ -440,8 +473,6 @@ fun DetailScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-
-                        val txt = playRaw.trim().ifBlank { "暂无数据" }
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = Color(0x22000000),
@@ -456,11 +487,20 @@ fun DetailScreen(
                                         .verticalScroll(rememberScrollState())
                                         .padding(14.dp),
                             ) {
-                                Text(
-                                    text = txt,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.92f),
-                                )
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Header 信息",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = Color.White.copy(alpha = 0.82f),
+                                    )
+                                    SelectionContainer {
+                                        Text(
+                                            text = headersText,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.White.copy(alpha = 0.92f),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
