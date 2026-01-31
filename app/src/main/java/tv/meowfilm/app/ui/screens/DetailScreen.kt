@@ -92,7 +92,6 @@ fun DetailScreen(
 ) {
     var fullScreen by rememberSaveable(payload.title) { mutableStateOf(false) }
     BackHandler(enabled = fullScreen) { fullScreen = false }
-    BackHandler(enabled = !fullScreen) { onBack() }
 
     val historyRepo = LocalWatchHistoryRepository.current
     val meowFilmStore = LocalMeowFilmStore.current
@@ -128,6 +127,15 @@ fun DetailScreen(
     DisposableEffect(playerController) {
         onDispose { playerController.release() }
     }
+
+    // Stop playback as soon as this screen is leaving via back.
+    fun stopAndBack() {
+        playerController.stop()
+        onBack()
+    }
+
+    // Replace the normal back handler with stop+back.
+    BackHandler(enabled = !fullScreen) { stopAndBack() }
 
     LaunchedEffect(playUrl, playHeaders) {
         playerController.setSource(playUrl, playHeaders)
@@ -272,109 +280,111 @@ fun DetailScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         MeowFilmBackground()
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 28.dp, start = 26.dp, end = 26.dp, bottom = 26.dp),
-        ) {
-            TopLayout(
-                title = title,
-                accent = accent,
-                selectedSourceLabel = currentSource?.siteName ?: "换源",
-                actor = detailActor,
-                content = detailContent,
-                onShowPlayInfo = { showPlayInfoDialog = true },
-                isFavorite = favorite,
-                onToggleFavorite = { favorite = !favorite },
-                onPickSource = { if (canSwitchSource) showSourcePicker = true },
-                playUrl = playUrl,
-                playerController = playerController,
-                onEnterFullScreen = { fullScreen = true },
-                showSwitchSource = canSwitchSource,
-            )
+        if (!fullScreen) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 28.dp, start = 26.dp, end = 26.dp, bottom = 26.dp),
+            ) {
+                TopLayout(
+                    title = title,
+                    accent = accent,
+                    selectedSourceLabel = currentSource?.siteName ?: "换源",
+                    actor = detailActor,
+                    content = detailContent,
+                    onShowPlayInfo = { showPlayInfoDialog = true },
+                    isFavorite = favorite,
+                    onToggleFavorite = { favorite = !favorite },
+                    onPickSource = { if (canSwitchSource) showSourcePicker = true },
+                    playUrl = playUrl,
+                    playerController = playerController,
+                    onEnterFullScreen = { fullScreen = true },
+                    showSwitchSource = canSwitchSource,
+                )
 
-            Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-            val eps = playLines.firstOrNull()?.episodes ?: emptyList()
-            when {
-                detailLoading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "正在加载…", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                val eps = playLines.firstOrNull()?.episodes ?: emptyList()
+                when {
+                    detailLoading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = "正在加载…", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                        }
                     }
-                }
 
-                detailError.isNotBlank() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = detailError, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                    detailError.isNotBlank() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = detailError, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                        }
                     }
-                }
 
-                eps.isEmpty() -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = "暂无选集", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                    eps.isEmpty() -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(text = "暂无选集", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f))
+                        }
                     }
-                }
 
-                else -> {
-                    val lines = playLines
-                    val currentLine = lines.getOrNull(selectedLine.intValue) ?: lines.firstOrNull()
-                    val canPickLine = lines.size > 1
-                    val lineEpisodes = currentLine?.episodes ?: emptyList()
-                    val showRawToggle = lineEpisodes.size > 1
-                    if (!showRawToggle) showRawList = true
+                    else -> {
+                        val lines = playLines
+                        val currentLine = lines.getOrNull(selectedLine.intValue) ?: lines.firstOrNull()
+                        val canPickLine = lines.size > 1
+                        val lineEpisodes = currentLine?.episodes ?: emptyList()
+                        val showRawToggle = lineEpisodes.size > 1
+                        if (!showRawToggle) showRawList = true
 
-                    val list =
-                        if (currentLine != null) buildEpisodeList(currentLine, showRaw = showRawList, descending = descending) else emptyList()
-                    val groups = ((list.size + 19) / 20).coerceAtLeast(1)
-                    if (selectedRange.intValue >= groups) selectedRange.intValue = 0
-                    val filtered = sliceEpisodeRange(list, selectedRange.intValue, size = 20)
-                    if (selectedEpisode.intValue >= filtered.size) selectedEpisode.intValue = 0
+                        val list =
+                            if (currentLine != null) buildEpisodeList(currentLine, showRaw = showRawList, descending = descending) else emptyList()
+                        val groups = ((list.size + 19) / 20).coerceAtLeast(1)
+                        if (selectedRange.intValue >= groups) selectedRange.intValue = 0
+                        val filtered = sliceEpisodeRange(list, selectedRange.intValue, size = 20)
+                        if (selectedEpisode.intValue >= filtered.size) selectedEpisode.intValue = 0
 
-                    EpisodeToolbar(
-                        lineFlags = lines.map { it.flag },
-                        selectedLine = selectedLine.intValue,
-                        onSelectLine = { idx ->
-                            selectedLine.intValue = idx
-                            selectedEpisode.intValue = 0
-                            selectedRange.intValue = 0
-                            showRawList = false
-                        },
-                        canPickLine = canPickLine,
-                        showRawToggle = showRawToggle,
-                        showRaw = showRawList,
-                        onToggleRaw = {
-                            showRawList = !showRawList
-                            selectedEpisode.intValue = 0
-                            selectedRange.intValue = 0
-                        },
-                        descending = descending,
-                        onToggleDescending = {
-                            descending = !descending
-                            selectedEpisode.intValue = 0
-                            selectedRange.intValue = 0
-                        },
-                        ranges = (0 until groups).map { i ->
-                            val start = i * 20 + 1
-                            val end = minOf((i + 1) * 20, list.size)
-                            "$start-$end"
-                        },
-                        selectedRange = selectedRange.intValue,
-                        onSelectRange = {
-                            selectedRange.intValue = it
-                            selectedEpisode.intValue = 0
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                        EpisodeToolbar(
+                            lineFlags = lines.map { it.flag },
+                            selectedLine = selectedLine.intValue,
+                            onSelectLine = { idx ->
+                                selectedLine.intValue = idx
+                                selectedEpisode.intValue = 0
+                                selectedRange.intValue = 0
+                                showRawList = false
+                            },
+                            canPickLine = canPickLine,
+                            showRawToggle = showRawToggle,
+                            showRaw = showRawList,
+                            onToggleRaw = {
+                                showRawList = !showRawList
+                                selectedEpisode.intValue = 0
+                                selectedRange.intValue = 0
+                            },
+                            descending = descending,
+                            onToggleDescending = {
+                                descending = !descending
+                                selectedEpisode.intValue = 0
+                                selectedRange.intValue = 0
+                            },
+                            ranges = (0 until groups).map { i ->
+                                val start = i * 20 + 1
+                                val end = minOf((i + 1) * 20, list.size)
+                                "$start-$end"
+                            },
+                            selectedRange = selectedRange.intValue,
+                            onSelectRange = {
+                                selectedRange.intValue = it
+                                selectedEpisode.intValue = 0
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                    EpisodeGrid(
-                        accent = accent,
-                        episodes = filtered.map { it.displayLabel() },
-                        selectedIndex = selectedEpisode.intValue,
-                        onSelect = { selectedEpisode.intValue = it },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                        EpisodeGrid(
+                            accent = accent,
+                            episodes = filtered.map { it.displayLabel() },
+                            selectedIndex = selectedEpisode.intValue,
+                            onSelect = { selectedEpisode.intValue = it },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
         }

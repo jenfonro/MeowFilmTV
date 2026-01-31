@@ -16,4 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "MeowFilmTV"
 include(":app")
-
+include(":tvboxplayer")

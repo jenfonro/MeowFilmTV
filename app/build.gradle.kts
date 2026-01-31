@@ -13,6 +13,10 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+
+        ndk {
+            abiFilters += listOf("armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -64,10 +68,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.foundation:foundation-layout")
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    implementation(project(":tvboxplayer"))
 
     // Keep Media3 aligned with compileSdk=34 (AGP 8.5.x recommended max).
     // Newer Media3 releases require compileSdk 35+ and will fail `checkDebugAarMetadata` in CI.

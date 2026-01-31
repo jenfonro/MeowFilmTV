@@ -1,6 +1,7 @@
 package tv.meowfilm.app.ui.components
 
 import android.content.Context
+import android.view.ViewGroup
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,14 +15,21 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.net.URI
 import okhttp3.OkHttpClient
+import xyz.doikki.videoplayer.ijk.IjkPlayer
+import xyz.doikki.videoplayer.ijk.IjkPlayerFactory
+import xyz.doikki.videoplayer.player.VideoView
 
 class MeowPlayerController(
     context: Context,
 ) {
     private val appContext = context.applicationContext
 
-    // Expose as state so PlayerView updates when we swap the instance (e.g. retry with FFmpeg video renderer).
-    var player: ExoPlayer by mutableStateOf(buildPlayer(preferExtension = false))
+    enum class Engine {
+        MEDIA3,
+        IJK_SOFT,
+    }
+
+    var engine by mutableStateOf(Engine.IJK_SOFT)
         private set
 
     var stateText by mutableStateOf("idle")
@@ -32,7 +40,8 @@ class MeowPlayerController(
 
     private var lastUrl: String = ""
     private var lastHeaders: Map<String, String> = emptyMap()
-    private var retriedWithPreferExtension: Boolean = false
+    private var lastAppliedEngine: Engine? = null
+    private var retriedFallback: Boolean = false
 
     private val okHttpClient: OkHttpClient =
         OkHttpClient.Builder()
@@ -40,29 +49,72 @@ class MeowPlayerController(
             .followSslRedirects(true)
             .build()
 
+    private val media3Player: ExoPlayer = buildMedia3Player()
+    private var ijkView: VideoView<IjkPlayer>? = null
+
     init {
-        attachListener(player)
+        attachMedia3Listener(media3Player)
     }
 
-    private fun buildPlayer(preferExtension: Boolean): ExoPlayer {
-        val mode =
-            if (preferExtension) {
-                // Prefer extension (FFmpeg) video renderer when available.
-                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-            } else {
-                // Keep hardware decoders preferred; extension is available but not prioritized.
-                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
-            }
+    fun media3(): ExoPlayer = media3Player
 
+    fun ijk(): VideoView<IjkPlayer> {
+        val existing = ijkView
+        if (existing != null) return existing
+        val view =
+            VideoView<IjkPlayer>(appContext).apply {
+                layoutParams =
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                setPlayerFactory(IjkPlayerFactory.create())
+                setEnableAudioFocus(true)
+                setOnStateChangeListener(
+                    object : VideoView.OnStateChangeListener {
+                        override fun onPlayerStateChanged(playerState: Int) = Unit
+
+                        override fun onPlayStateChanged(playState: Int) {
+                            stateText =
+                                when (playState) {
+                                    VideoView.STATE_IDLE -> "idle"
+                                    VideoView.STATE_PREPARING -> "loading"
+                                    VideoView.STATE_PREPARED -> "loading"
+                                    VideoView.STATE_BUFFERING -> "buffering"
+                                    VideoView.STATE_BUFFERED -> "ready"
+                                    VideoView.STATE_PLAYING -> "ready"
+                                    VideoView.STATE_PAUSED -> "paused"
+                                    VideoView.STATE_PLAYBACK_COMPLETED -> "ended"
+                                    VideoView.STATE_ERROR -> {
+                                        lastError = "播放失败"
+                                        if (!retriedFallback && engine == Engine.IJK_SOFT && lastUrl.isNotBlank()) {
+                                            retriedFallback = true
+                                            switchTo(Engine.MEDIA3)
+                                            setSource(url = lastUrl, headers = lastHeaders, force = true)
+                                        }
+                                        "error"
+                                    }
+                                    else -> stateText
+                                }
+                        }
+                    },
+                )
+            }
+        ijkView = view
+        return view
+    }
+
+    private fun buildMedia3Player(): ExoPlayer {
         val renderersFactory =
             DefaultRenderersFactory(appContext)
                 .setEnableDecoderFallback(true)
-                .setExtensionRendererMode(mode)
+                // Keep ON so if a user adds a local extension later it can be used.
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         return ExoPlayer.Builder(appContext).setRenderersFactory(renderersFactory).build()
     }
 
-    private fun attachListener(p: ExoPlayer) {
+    private fun attachMedia3Listener(p: ExoPlayer) {
         p.addListener(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
@@ -99,15 +151,6 @@ class MeowPlayerController(
                         raw.contains("MediaCodecVideoRenderer", ignoreCase = true) &&
                             (raw.contains("video/hevc", ignoreCase = true) || raw.contains("hvc1", ignoreCase = true))
 
-                    // If we are failing on HEVC via MediaCodec, retry once with extension preferred (FFmpeg video renderer).
-                    if (looksLikeHevcCodecFailure && !retriedWithPreferExtension && lastUrl.isNotBlank()) {
-                        retriedWithPreferExtension = true
-                        swapPlayer(preferExtension = true)
-                        // Force reload with the same source.
-                        setSource(url = lastUrl, headers = lastHeaders, force = true)
-                        return
-                    }
-
                     lastError =
                         if (looksLikeHevcCodecFailure) {
                             "$raw | 提示：当前视频为 HEVC/H.265，可能超出硬解能力（清晰度/10bit/等级）。"
@@ -115,20 +158,22 @@ class MeowPlayerController(
                             raw
                         }
                     stateText = "error"
+
+                    if (looksLikeHevcCodecFailure && engine == Engine.MEDIA3) {
+                        // Fall back to IJK software decoder if available.
+                        switchTo(Engine.IJK_SOFT)
+                        setSource(url = lastUrl, headers = lastHeaders, force = true)
+                    }
                 }
             },
         )
     }
 
-    private fun swapPlayer(preferExtension: Boolean) {
-        val old = player
-        val next = buildPlayer(preferExtension)
-        attachListener(next)
-        player = next
-        runCatching { old.release() }
-    }
-
-    fun setSource(url: String, headers: Map<String, String>, force: Boolean = false) {
+    fun setSource(
+        url: String,
+        headers: Map<String, String>,
+        force: Boolean = false,
+    ) {
         val u = url.trim()
         if (u.isBlank()) return
         val normalizedHeaders =
@@ -159,28 +204,87 @@ class MeowPlayerController(
                     }
                 }
 
-        if (!force && u == lastUrl && normalizedHeaders == lastHeaders) return
+        if (!force && u == lastUrl && normalizedHeaders == lastHeaders && lastAppliedEngine == engine) return
         lastUrl = u
         lastHeaders = normalizedHeaders
+        lastAppliedEngine = engine
+        retriedFallback = false
 
         lastError = ""
         stateText = "loading"
 
-        val dataSourceFactory: DataSource.Factory =
-            OkHttpDataSource.Factory(okHttpClient)
-                .setDefaultRequestProperties(normalizedHeaders)
+        when (engine) {
+            Engine.MEDIA3 -> {
+                val dataSourceFactory: DataSource.Factory =
+                    OkHttpDataSource.Factory(okHttpClient)
+                        .setDefaultRequestProperties(normalizedHeaders)
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
-        val mediaSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(u))
-        player.apply {
-            setMediaSource(mediaSource)
-            prepare()
-            playWhenReady = true
-            play()
+                val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+                val mediaSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(u))
+                media3Player.apply {
+                    setMediaSource(mediaSource)
+                    prepare()
+                    playWhenReady = true
+                    play()
+                }
+            }
+
+            Engine.IJK_SOFT -> {
+                // IjkPlayer mutates the headers map (removes User-Agent), so pass a copy.
+                val headersCopy = normalizedHeaders.toMutableMap()
+                ijk().apply {
+                    setUrl(u, headersCopy)
+                    val playState = currentPlayState
+                    if (playState == VideoView.STATE_IDLE || playState == VideoView.STATE_START_ABORT) {
+                        start()
+                    } else {
+                        replay(true)
+                    }
+                }
+            }
+        }
+    }
+
+    fun switchTo(next: Engine) {
+        if (engine == next) return
+        when (engine) {
+            Engine.MEDIA3 -> runCatching { media3Player.pause(); media3Player.stop(); media3Player.clearMediaItems() }
+            Engine.IJK_SOFT -> runCatching { ijkView?.release() }
+        }
+        lastAppliedEngine = null
+        retriedFallback = false
+        engine = next
+        lastError = ""
+        stateText = "idle"
+    }
+
+    fun stop() {
+        lastError = ""
+        stateText = "idle"
+        lastUrl = ""
+        lastHeaders = emptyMap()
+        lastAppliedEngine = null
+        retriedFallback = false
+        runCatching {
+            when (engine) {
+                Engine.MEDIA3 -> {
+                    media3Player.playWhenReady = false
+                    media3Player.pause()
+                    media3Player.stop()
+                    media3Player.clearMediaItems()
+                }
+
+                Engine.IJK_SOFT -> {
+                    ijkView?.release()
+                }
+            }
         }
     }
 
     fun release() {
-        runCatching { player.release() }
+        stop()
+        runCatching { media3Player.release() }
+        runCatching { ijkView?.release() }
+        ijkView = null
     }
 }

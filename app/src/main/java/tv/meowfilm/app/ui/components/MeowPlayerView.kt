@@ -12,23 +12,34 @@ fun MeowPlayerView(
     useController: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    AndroidView(
-        modifier = modifier,
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                layoutParams =
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                this.useController = useController
-                player = controller.player
-            }
-        },
-        update = { pv ->
-            pv.useController = useController
-            pv.player = controller.player
-        },
-    )
-}
+    when (controller.engine) {
+        MeowPlayerController.Engine.MEDIA3 -> {
+            AndroidView(
+                modifier = modifier,
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        layoutParams =
+                            ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                        this.useController = useController
+                        player = controller.media3()
+                    }
+                },
+                update = { pv ->
+                    pv.useController = useController
+                    pv.player = controller.media3()
+                },
+            )
+        }
 
+        MeowPlayerController.Engine.IJK_SOFT -> {
+            AndroidView(
+                modifier = modifier,
+                factory = { _ -> controller.ijk() },
+                update = { _ -> },
+            )
+        }
+    }
+}
