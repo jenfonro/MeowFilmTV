@@ -30,6 +30,7 @@ data class CatDetail(
 data class CatPlayResult(
     val url: String,
     val headers: Map<String, String>,
+    val raw: String,
 )
 
 object CatPawOpenClient {
@@ -140,24 +141,122 @@ object CatPawOpenClient {
                     ),
             )
         if (resp.code !in 200..299) throw IllegalStateException("HTTP ${resp.code}")
-        val root = JSONObject(String(resp.body, Charsets.UTF_8))
+        val raw = String(resp.body, Charsets.UTF_8)
+        val root = JSONObject(raw)
         val dataObj = root.optJSONObject("data")
         val urlStr =
             root.optString("url").orEmpty().trim().ifBlank {
                 dataObj?.optString("url").orEmpty().trim()
             }
-        val headerObj =
-            root.optJSONObject("header")
-                ?: root.optJSONObject("headers")
-                ?: dataObj?.optJSONObject("header")
-                ?: dataObj?.optJSONObject("headers")
-                ?: JSONObject()
-        val headers = mutableMapOf<String, String>()
-        headerObj.keys().forEach { k ->
-            val v = headerObj.optString(k).orEmpty()
-            if (k.isNotBlank() && v.isNotBlank()) headers[k] = v
+        val headers =
+            buildHeadersMap(
+                root = root,
+                dataObj = dataObj,
+            )
+        return CatPlayResult(url = urlStr, headers = headers, raw = raw)
+    }
+
+    private fun buildHeadersMap(root: JSONObject, dataObj: JSONObject?): Map<String, String> {
+        // CatPawOpen response variants:
+        // - header/headers: object
+        // - header/headers: string ("Referer: ...\nCookie: ...")
+        // - referer/cookie/ua: fields
+        val candidates =
+            listOfNotNull(
+                root.opt("header"),
+                root.opt("headers"),
+                dataObj?.opt("header"),
+                dataObj?.opt("headers"),
+            )
+
+        val merged = LinkedHashMap<String, String>()
+        candidates.forEach { any ->
+            parseHeadersAny(any).forEach { (k, v) ->
+                if (k.isNotBlank() && v.isNotBlank() && !merged.containsKey(k)) merged[k] = v
+            }
         }
-        return CatPlayResult(url = urlStr, headers = headers)
+
+        fun putIfMissing(key: String, value: String) {
+            if (key.isBlank() || value.isBlank()) return
+            if (merged.keys.any { it.equals(key, ignoreCase = true) }) return
+            merged[key] = value
+        }
+
+        putIfMissing("Referer", root.optString("referer").orEmpty().trim().ifBlank { dataObj?.optString("referer").orEmpty().trim() })
+        putIfMissing("Cookie", root.optString("cookie").orEmpty().trim().ifBlank { dataObj?.optString("cookie").orEmpty().trim() })
+        putIfMissing(
+            "User-Agent",
+            root.optString("userAgent").orEmpty().trim()
+                .ifBlank { root.optString("ua").orEmpty().trim() }
+                .ifBlank { dataObj?.optString("userAgent").orEmpty().trim() }
+                .ifBlank { dataObj?.optString("ua").orEmpty().trim() },
+        )
+
+        return merged.mapValues { it.value.trim() }.filterValues { it.isNotBlank() }
+    }
+
+    private fun parseHeadersAny(any: Any?): Map<String, String> {
+        if (any == null) return emptyMap()
+        return when (any) {
+            is JSONObject -> {
+                val out = LinkedHashMap<String, String>()
+                any.keys().forEach { k ->
+                    val v = any.optString(k).orEmpty().trim()
+                    if (k.isNotBlank() && v.isNotBlank()) out[k.trim()] = v
+                }
+                out
+            }
+
+            is JSONArray -> {
+                val out = LinkedHashMap<String, String>()
+                for (i in 0 until any.length()) {
+                    val it = any.opt(i) ?: continue
+                    when (it) {
+                        is JSONObject -> {
+                            val k = it.optString("key").ifBlank { it.optString("name") }.trim()
+                            val v = it.optString("value").trim()
+                            if (k.isNotBlank() && v.isNotBlank()) out[k] = v
+                        }
+
+                        is String -> {
+                            parseHeadersAny(it).forEach { (k, v) -> if (!out.containsKey(k)) out[k] = v }
+                        }
+                    }
+                }
+                out
+            }
+
+            is String -> {
+                val s = any.trim()
+                if (s.isBlank()) return emptyMap()
+
+                if (s.startsWith("{") && s.endsWith("}")) {
+                    runCatching { JSONObject(s) }.getOrNull()?.let { return parseHeadersAny(it) }
+                }
+
+                val out = LinkedHashMap<String, String>()
+                s.split("\r\n", "\n").forEach { line ->
+                    val ln = line.trim()
+                    if (ln.isBlank()) return@forEach
+                    val idx = ln.indexOf(':')
+                    if (idx > 0 && idx < ln.length - 1) {
+                        val k = ln.substring(0, idx).trim()
+                        val v = ln.substring(idx + 1).trim()
+                        if (k.isNotBlank() && v.isNotBlank()) out[k] = v
+                        return@forEach
+                    }
+                    val eq = ln.indexOf('=')
+                    if (eq > 0 && eq < ln.length - 1) {
+                        val k = ln.substring(0, eq).trim()
+                        val v = ln.substring(eq + 1).trim()
+                        if (k.isNotBlank() && v.isNotBlank()) out[k] = v
+                    }
+                }
+                out
+            }
+
+            else -> emptyMap()
+        }
     }
 
     private fun buildPlayUrl(

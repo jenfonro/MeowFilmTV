@@ -300,18 +300,19 @@ private fun CategoryPill(
 
     val bg =
         when {
-            selected -> Color(0x440B0F14)
-            else -> Color(0x2B0B0F14)
+            selected -> Color(0x40FFFFFF)
+            else -> Color(0x1F0B0F14)
         }
     val fg =
         when {
-            selected -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.95f)
-            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
+            selected -> Color(0xFF0B0F14)
+            isFocused -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
+            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
         }
     val border =
         when {
             isFocused -> BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))
-            selected -> BorderStroke(1.dp, Color.White.copy(alpha = 0.32f))
+            selected -> BorderStroke(2.dp, Color.White.copy(alpha = 0.75f))
             else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
         }
 

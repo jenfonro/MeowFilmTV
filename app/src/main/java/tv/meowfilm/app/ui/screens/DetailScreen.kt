@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -112,7 +114,8 @@ fun DetailScreen(
     var playError by rememberSaveable(title) { mutableStateOf("") }
     var detailActor by rememberSaveable(title) { mutableStateOf("") }
     var detailContent by rememberSaveable(title) { mutableStateOf("") }
-    var showPlayInfo by rememberSaveable(title) { mutableStateOf(false) }
+    var playRaw by rememberSaveable(title) { mutableStateOf("") }
+    var showPlayInfoDialog by rememberSaveable(title) { mutableStateOf(false) }
 
     val availableSources = payload.sources
     val currentSource = availableSources.getOrNull(selectedSource.intValue)
@@ -223,6 +226,7 @@ fun DetailScreen(
             val p = result.getOrThrow()
             playUrl = p.url
             playHeaders = p.headers
+            playRaw = p.raw
             playError = ""
 
             val playedLine = playLines.getOrNull(selectedLine.intValue) ?: playLines.firstOrNull()
@@ -272,10 +276,7 @@ fun DetailScreen(
                 selectedSourceLabel = currentSource?.siteName ?: "换源",
                 actor = detailActor,
                 content = detailContent,
-                showPlayInfo = showPlayInfo,
-                onTogglePlayInfo = { showPlayInfo = !showPlayInfo },
-                playInfoLineLabel = (playLines.getOrNull(selectedLine.intValue)?.flag).orEmpty(),
-                playInfoUrl = playUrl,
+                onShowPlayInfo = { showPlayInfoDialog = true },
                 isFavorite = favorite,
                 onToggleFavorite = { favorite = !favorite },
                 onPickSource = { if (canSwitchSource) showSourcePicker = true },
@@ -384,6 +385,55 @@ fun DetailScreen(
             )
         }
 
+        if (showPlayInfoDialog) {
+            Dialog(onDismissRequest = { showPlayInfoDialog = false }) {
+                Surface(
+                    shape = RoundedCornerShape(22.dp),
+                    color = Color(0xEE0B0F14),
+                    tonalElevation = 0.dp,
+                    shadowElevation = 22.dp,
+                ) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .width(920.dp)
+                                .padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text(
+                            text = "播放信息（play 返回）",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White.copy(alpha = 0.95f),
+                            maxLines = 1,
+                        )
+
+                        val txt = playRaw.trim().ifBlank { "暂无数据" }
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0x22000000),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp,
+                        ) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(520.dp)
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(14.dp),
+                            ) {
+                                Text(
+                                    text = txt,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.92f),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if (fullScreen) {
             Dialog(onDismissRequest = { fullScreen = false }) {
                 Box(
@@ -418,10 +468,7 @@ private fun TopLayout(
     selectedSourceLabel: String,
     actor: String,
     content: String,
-    showPlayInfo: Boolean,
-    onTogglePlayInfo: () -> Unit,
-    playInfoLineLabel: String,
-    playInfoUrl: String,
+    onShowPlayInfo: () -> Unit,
     isFavorite: Boolean,
     onToggleFavorite: () -> Unit,
     onPickSource: () -> Unit,
@@ -472,17 +519,6 @@ private fun TopLayout(
                 }
             }
 
-            if (showPlayInfo) {
-                val lineLabel = playInfoLineLabel.trim()
-                if (lineLabel.isNotBlank()) {
-                    MetaText(text = "网盘源：$lineLabel")
-                }
-                val u = playInfoUrl.trim()
-                if (u.isNotBlank()) {
-                    MetaText(text = "播放地址：$u")
-                }
-            }
-
             val desc = content.trim().replace("\n", " ").replace("\t", " ")
             if (desc.isNotBlank()) {
                 Text(
@@ -515,7 +551,7 @@ private fun TopLayout(
                     label = "播放信息",
                     icon = Icons.Outlined.Info,
                     accent = accent,
-                    onClick = onTogglePlayInfo,
+                    onClick = onShowPlayInfo,
                 )
             }
         }
