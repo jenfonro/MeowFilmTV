@@ -69,7 +69,9 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    val media3 = "1.6.0"
+    // Keep Media3 aligned with compileSdk=34 (AGP 8.5.x recommended max).
+    // Newer Media3 releases require compileSdk 35+ and will fail `checkDebugAarMetadata` in CI.
+    val media3 = "1.3.1"
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-datasource-okhttp:$media3")
