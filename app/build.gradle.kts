@@ -69,9 +69,10 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.7.7")
 
-    implementation("androidx.media3:media3-exoplayer:1.3.1")
-    implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.3.1")
-    implementation("androidx.media3:media3-decoder-ffmpeg:1.3.1")
-    implementation("androidx.media3:media3-ui:1.3.1")
+    val media3 = "1.6.0"
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    implementation("androidx.media3:media3-datasource-okhttp:$media3")
+    implementation("androidx.media3:media3-decoder-ffmpeg:$media3")
+    implementation("androidx.media3:media3-ui:$media3")
 }
