@@ -83,12 +83,13 @@ class MeowPlayerController(
                     var c: Throwable? = error.cause
                     var depth = 0
                     while (c != null && depth < 3) {
-                        val cm = c.message.orEmpty().trim()
+                        val cause = c ?: break
+                        val cm = cause.message.orEmpty().trim()
                         parts += buildString {
-                            append(c::class.java.simpleName)
+                            append(cause::class.java.simpleName)
                             if (cm.isNotBlank()) append(": ").append(cm)
                         }
-                        c = c.cause
+                        c = cause.cause
                         depth++
                     }
                     if (parts.isEmpty()) parts += error.errorCodeName
