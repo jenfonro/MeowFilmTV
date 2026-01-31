@@ -60,6 +60,7 @@ import kotlinx.coroutines.withContext
 import tv.meowfilm.app.ui.components.GlassLayer
 import tv.meowfilm.app.ui.LocalAppSettingsRepository
 import tv.meowfilm.app.data.DoubanClient
+import tv.meowfilm.app.ui.LocalSearchHistoryRepository
 
 @Composable
 fun SearchScreen(
@@ -69,7 +70,8 @@ fun SearchScreen(
 ) {
     val settings = LocalAppSettingsRepository.current.settings
     var query by rememberSaveable { mutableStateOf("") }
-    val history = remember { mutableStateListOf<String>() }
+    val historyRepo = LocalSearchHistoryRepository.current
+    val history = historyRepo.items
     var hotLoading by remember { mutableStateOf(false) }
     var hotWords by remember {
         mutableStateOf(
@@ -134,7 +136,10 @@ fun SearchScreen(
                     onPick = { w ->
                         query = w
                         val q = w.trim()
-                        if (q.isNotBlank()) onOpenSearchResults(q)
+                        if (q.isNotBlank()) {
+                            historyRepo.add(q)
+                            onOpenSearchResults(q)
+                        }
                     },
                     onContentFocus = onContentFocus,
                     modifier = Modifier.width(220.dp),
@@ -145,8 +150,10 @@ fun SearchScreen(
                     onQueryChange = { query = it },
                     onSearch = {
                         val q = query.trim()
-                        if (q.isNotBlank() && q !in history) history.add(0, q)
-                        if (q.isNotBlank()) onOpenSearchResults(q)
+                        if (q.isNotBlank()) {
+                            historyRepo.add(q)
+                            onOpenSearchResults(q)
+                        }
                     },
                     onClear = {
                         query = ""
@@ -163,8 +170,10 @@ fun SearchScreen(
                         onPick = { w ->
                             query = w
                             val q = w.trim()
-                            if (q.isNotBlank() && q !in history) history.add(0, q)
-                            if (q.isNotBlank()) onOpenSearchResults(q)
+                            if (q.isNotBlank()) {
+                                historyRepo.add(q)
+                                onOpenSearchResults(q)
+                            }
                         },
                         onContentFocus = onContentFocus,
                         modifier = Modifier.weight(1f),
@@ -177,8 +186,10 @@ fun SearchScreen(
                         onPick = { w ->
                             query = w
                             val q = w.trim()
-                            if (q.isNotBlank() && q !in history) history.add(0, q)
-                            if (q.isNotBlank()) onOpenSearchResults(q)
+                            if (q.isNotBlank()) {
+                                historyRepo.add(q)
+                                onOpenSearchResults(q)
+                            }
                         },
                         onContentFocus = onContentFocus,
                         modifier = Modifier.weight(1f),

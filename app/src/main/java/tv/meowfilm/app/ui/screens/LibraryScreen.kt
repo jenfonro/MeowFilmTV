@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import tv.meowfilm.app.ui.components.MeowFilmBackground
 import tv.meowfilm.app.ui.components.MediaCard
 import tv.meowfilm.app.ui.LocalWatchHistoryRepository
+import tv.meowfilm.app.ui.NavPayload
+import tv.meowfilm.app.ui.VideoPayload
+import tv.meowfilm.app.ui.VideoSourcePayload
 
 @Composable
 fun FavoritesScreen(
@@ -78,10 +81,33 @@ fun HistoryScreen(
                     val badge =
                         if (h.episodeIndex > 0) "上次看到${h.episodeIndex.toString().padStart(2, '0')}"
                         else ""
+                    val sources =
+                        if (h.siteKey.isNotBlank() && h.spiderApi.isNotBlank() && h.videoId.isNotBlank()) {
+                            listOf(
+                                VideoSourcePayload(
+                                    siteKey = h.siteKey,
+                                    siteName = h.siteName.ifBlank { h.siteKey },
+                                    spiderApi = h.spiderApi,
+                                    videoId = h.videoId,
+                                ),
+                            )
+                        } else {
+                            emptyList()
+                        }
+                    val payload =
+                        NavPayload.encode(
+                            VideoPayload(
+                                title = h.title,
+                                posterUrl = h.posterUrl,
+                                remark = "",
+                                sources = sources,
+                            ),
+                        )
                     UiMedia(
                         title = h.title,
                         subtitle = badge,
                         accent = Color(0xFFA7F3D0),
+                        id = payload,
                         posterUrl = h.posterUrl,
                         rating = "",
                     )
@@ -158,7 +184,7 @@ private fun LibraryScreen(
                             title = it.title,
                             subtitle = it.subtitle,
                             accent = it.accent,
-                            onClick = { onOpenDetail(it.title) },
+                            onClick = { onOpenDetail(it.id.ifBlank { it.title }) },
                             modifier = Modifier.width(214.dp),
                         )
                     }

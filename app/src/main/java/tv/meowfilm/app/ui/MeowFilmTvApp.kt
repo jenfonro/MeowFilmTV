@@ -16,9 +16,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.platform.LocalContext
 import tv.meowfilm.app.data.AppSettingsRepository
 import tv.meowfilm.app.data.MeowFilmSessionRepository
+import tv.meowfilm.app.data.SearchHistoryRepository
 import tv.meowfilm.app.data.WatchHistoryRepository
 import tv.meowfilm.app.ui.LocalWatchHistoryRepository
 import tv.meowfilm.app.ui.LocalMeowFilmSessionRepository
+import tv.meowfilm.app.ui.LocalSearchHistoryRepository
 import tv.meowfilm.app.ui.screens.MainScreen
 import tv.meowfilm.app.ui.screens.DetailScreen
 import tv.meowfilm.app.ui.screens.FavoritesScreen
@@ -41,6 +43,7 @@ fun MeowFilmTvApp() {
     val context = LocalContext.current.applicationContext
     val settingsRepo = remember { AppSettingsRepository(context) }
     val historyRepo = remember { WatchHistoryRepository(context) }
+    val searchHistoryRepo = remember { SearchHistoryRepository(context) }
     val doubanHomeStore = remember { DoubanHomeStore() }
     val meowFilmStore = remember { MeowFilmStore() }
     val meowFilmSessionRepo = remember { MeowFilmSessionRepository(context) }
@@ -50,6 +53,7 @@ fun MeowFilmTvApp() {
     CompositionLocalProvider(
         LocalAppSettingsRepository provides settingsRepo,
         LocalWatchHistoryRepository provides historyRepo,
+        LocalSearchHistoryRepository provides searchHistoryRepo,
         LocalDoubanHomeStore provides doubanHomeStore,
         LocalMeowFilmStore provides meowFilmStore,
         LocalMeowFilmSessionRepository provides meowFilmSessionRepo,
@@ -124,7 +128,11 @@ fun MeowFilmTvApp() {
                         val q = decodeRouteArg(backStack.arguments?.getString("query") ?: "")
                         SearchResultsScreen(
                             query = q,
-                            onBack = { nav.popBackStack() },
+                            onBack = {
+                                nav.navigate("main") {
+                                    popUpTo("main") { inclusive = true }
+                                }
+                            },
                             onOpenDetail = { payload ->
                                 nav.navigate("detail?payload=${encodeRouteArg(payload)}")
                             },
@@ -153,8 +161,7 @@ fun MeowFilmTvApp() {
                                     launchSingleTop = true
                                 }
                             },
-                            onOpenDetail = { title ->
-                                val payload = NavPayload.encode(VideoPayload(title = title))
+                            onOpenDetail = { payload ->
                                 nav.navigate("detail?payload=${encodeRouteArg(payload)}")
                             },
                         )
@@ -167,8 +174,7 @@ fun MeowFilmTvApp() {
                                     launchSingleTop = true
                                 }
                             },
-                            onOpenDetail = { title ->
-                                val payload = NavPayload.encode(VideoPayload(title = title))
+                            onOpenDetail = { payload ->
                                 nav.navigate("detail?payload=${encodeRouteArg(payload)}")
                             },
                         )

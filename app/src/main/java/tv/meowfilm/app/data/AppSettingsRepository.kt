@@ -90,9 +90,9 @@ class AppSettingsRepository(
 
     private fun load(): AppSettings =
         AppSettings(
-            serverUrl = prefs.getString(KEY_SERVER_URL, "") ?: "",
-            serverUsername = prefs.getString(KEY_SERVER_USERNAME, "") ?: "",
-            serverPassword = prefs.getString(KEY_SERVER_PASSWORD, "") ?: "",
+            serverUrl = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL,
+            serverUsername = prefs.getString(KEY_SERVER_USERNAME, DEFAULT_SERVER_USERNAME) ?: DEFAULT_SERVER_USERNAME,
+            serverPassword = prefs.getString(KEY_SERVER_PASSWORD, DEFAULT_SERVER_PASSWORD) ?: DEFAULT_SERVER_PASSWORD,
             themeMode = prefs.getString(KEY_THEME_MODE, "dark") ?: "dark",
             wallpaperUrl = prefs.getString(KEY_WALLPAPER_URL, "") ?: "",
             wallpaperLocalPath = prefs.getString(KEY_WALLPAPER_LOCAL_PATH, "") ?: "",
@@ -114,5 +114,9 @@ class AppSettingsRepository(
         private const val KEY_DOUBAN_DATA_CUSTOM = "douban_data_custom"
         private const val KEY_DOUBAN_IMG_PROXY = "douban_img_proxy"
         private const val KEY_DOUBAN_IMG_CUSTOM = "douban_img_custom"
+
+        private const val DEFAULT_SERVER_URL = "https://movie.zelt.cn"
+        private const val DEFAULT_SERVER_USERNAME = "zel"
+        private const val DEFAULT_SERVER_PASSWORD = "87981534"
     }
 }

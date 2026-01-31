@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cached
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -272,6 +273,7 @@ fun DetailScreen(
                 actor = detailActor,
                 content = detailContent,
                 showPlayInfo = showPlayInfo,
+                onTogglePlayInfo = { showPlayInfo = !showPlayInfo },
                 playInfoLineLabel = (playLines.getOrNull(selectedLine.intValue)?.flag).orEmpty(),
                 playInfoUrl = playUrl,
                 isFavorite = favorite,
@@ -337,8 +339,6 @@ fun DetailScreen(
                             selectedEpisode.intValue = 0
                             selectedRange.intValue = 0
                         },
-                        showPlayInfo = showPlayInfo,
-                        onTogglePlayInfo = { showPlayInfo = !showPlayInfo },
                         descending = descending,
                         onToggleDescending = {
                             descending = !descending
@@ -419,6 +419,7 @@ private fun TopLayout(
     actor: String,
     content: String,
     showPlayInfo: Boolean,
+    onTogglePlayInfo: () -> Unit,
     playInfoLineLabel: String,
     playInfoUrl: String,
     isFavorite: Boolean,
@@ -510,6 +511,12 @@ private fun TopLayout(
                         onClick = onPickSource,
                     )
                 }
+                SmallActionButton(
+                    label = "播放信息",
+                    icon = Icons.Outlined.Info,
+                    accent = accent,
+                    onClick = onTogglePlayInfo,
+                )
             }
         }
     }
@@ -574,8 +581,6 @@ private fun EpisodeToolbar(
     showRawToggle: Boolean,
     showRaw: Boolean,
     onToggleRaw: () -> Unit,
-    showPlayInfo: Boolean,
-    onTogglePlayInfo: () -> Unit,
     descending: Boolean,
     onToggleDescending: () -> Unit,
     ranges: List<String>,
@@ -605,11 +610,6 @@ private fun EpisodeToolbar(
                     onClick = onToggleRaw,
                 )
             }
-            SmallPill(
-                text = "播放信息",
-                selected = showPlayInfo,
-                onClick = onTogglePlayInfo,
-            )
             SmallPill(
                 text = if (descending) "倒序" else "正序",
                 selected = descending,
@@ -734,6 +734,48 @@ private fun PlayerBox(
             ) {
                 // Embedded: hide controllers, click to enter fullscreen
                 MeowPlayerView(controller = controller, useController = false, modifier = Modifier.fillMaxSize())
+
+                val err = controller.lastError.trim()
+                if (err.isNotBlank()) {
+                    Surface(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(12.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xAA000000),
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            text = "播放失败：$err",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.95f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                } else if (controller.stateText == "buffering" || controller.stateText == "loading") {
+                    Surface(
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(12.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0x66000000),
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            text = if (controller.stateText == "buffering") "缓冲中…" else "加载中…",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         } else {
             Box(

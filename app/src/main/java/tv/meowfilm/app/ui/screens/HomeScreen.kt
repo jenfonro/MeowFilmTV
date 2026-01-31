@@ -175,7 +175,31 @@ fun HomeTabContent(
                                 title = h.title,
                                 subtitle = badge,
                                 accent = Color(0xFFA7F3D0),
-                                onClick = { onOpenDetail(NavPayload.encode(VideoPayload(title = h.title))) },
+                                onClick = {
+                                    val sources =
+                                        if (h.siteKey.isNotBlank() && h.spiderApi.isNotBlank() && h.videoId.isNotBlank()) {
+                                            listOf(
+                                                tv.meowfilm.app.ui.VideoSourcePayload(
+                                                    siteKey = h.siteKey,
+                                                    siteName = h.siteName.ifBlank { h.siteKey },
+                                                    spiderApi = h.spiderApi,
+                                                    videoId = h.videoId,
+                                                ),
+                                            )
+                                        } else {
+                                            emptyList()
+                                        }
+                                    onOpenDetail(
+                                        NavPayload.encode(
+                                            VideoPayload(
+                                                title = h.title,
+                                                posterUrl = h.posterUrl,
+                                                remark = "",
+                                                sources = sources,
+                                            ),
+                                        ),
+                                    )
+                                },
                                 posterUrl = h.posterUrl,
                                 rating = "",
                                 modifier = Modifier.width(214.dp),
