@@ -22,6 +22,7 @@ import xyz.doikki.videoplayer.player.VideoView
 class MeowPlayerController(
     context: Context,
 ) {
+    private val uiContext = context
     private val appContext = context.applicationContext
 
     enum class Engine {
@@ -62,7 +63,8 @@ class MeowPlayerController(
         val existing = ijkView
         if (existing != null) return existing
         val view =
-            VideoView<IjkPlayer>(appContext).apply {
+            // Use an Activity/Window context for views (applicationContext can cause crashes on some devices/emulators).
+            VideoView<IjkPlayer>(uiContext).apply {
                 layoutParams =
                     ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
