@@ -18,18 +18,11 @@ import okhttp3.OkHttpClient
 class MeowPlayerController(
     context: Context,
 ) {
-    private val renderersFactory =
-        DefaultRenderersFactory(context)
-            // Try other available decoders when the preferred one fails.
-            // Note: this does not add software decoding by itself.
-            .setEnableDecoderFallback(true)
-            // If FFmpeg extension is present, allow it as a fallback when platform decoders fail.
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+    private val appContext = context.applicationContext
 
-    val player: ExoPlayer =
-        ExoPlayer.Builder(context)
-            .setRenderersFactory(renderersFactory)
-            .build()
+    // Expose as state so PlayerView updates when we swap the instance (e.g. retry with FFmpeg video renderer).
+    var player: ExoPlayer by mutableStateOf(buildPlayer(preferExtension = false))
+        private set
 
     var stateText by mutableStateOf("idle")
         private set
@@ -39,6 +32,7 @@ class MeowPlayerController(
 
     private var lastUrl: String = ""
     private var lastHeaders: Map<String, String> = emptyMap()
+    private var retriedWithPreferExtension: Boolean = false
 
     private val okHttpClient: OkHttpClient =
         OkHttpClient.Builder()
@@ -47,7 +41,29 @@ class MeowPlayerController(
             .build()
 
     init {
-        player.addListener(
+        attachListener(player)
+    }
+
+    private fun buildPlayer(preferExtension: Boolean): ExoPlayer {
+        val mode =
+            if (preferExtension) {
+                // Prefer extension (FFmpeg) video renderer when available.
+                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            } else {
+                // Keep hardware decoders preferred; extension is available but not prioritized.
+                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+            }
+
+        val renderersFactory =
+            DefaultRenderersFactory(appContext)
+                .setEnableDecoderFallback(true)
+                .setExtensionRendererMode(mode)
+
+        return ExoPlayer.Builder(appContext).setRenderersFactory(renderersFactory).build()
+    }
+
+    private fun attachListener(p: ExoPlayer) {
+        p.addListener(
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     stateText =
@@ -77,11 +93,23 @@ class MeowPlayerController(
                     }
                     if (parts.isEmpty()) parts += error.errorCodeName
                     val raw = parts.distinct().joinToString(" | ")
-                    lastError =
-                        if (raw.contains("MediaCodecVideoRenderer", ignoreCase = true) &&
+
+                    val looksLikeHevcCodecFailure =
+                        raw.contains("MediaCodecVideoRenderer", ignoreCase = true) &&
                             (raw.contains("video/hevc", ignoreCase = true) || raw.contains("hvc1", ignoreCase = true))
-                        ) {
-                            "$raw | 提示：当前视频为 HEVC/H.265，可能超出电视硬解能力（清晰度/10bit/等级）。可尝试换源或换更低清晰度/非 HEVC。"
+
+                    // If we are failing on HEVC via MediaCodec, retry once with extension preferred (FFmpeg video renderer).
+                    if (looksLikeHevcCodecFailure && !retriedWithPreferExtension && lastUrl.isNotBlank()) {
+                        retriedWithPreferExtension = true
+                        swapPlayer(preferExtension = true)
+                        // Force reload with the same source.
+                        setSource(url = lastUrl, headers = lastHeaders, force = true)
+                        return
+                    }
+
+                    lastError =
+                        if (looksLikeHevcCodecFailure) {
+                            "$raw | 提示：当前视频为 HEVC/H.265，可能超出硬解能力（清晰度/10bit/等级）。"
                         } else {
                             raw
                         }
@@ -91,7 +119,15 @@ class MeowPlayerController(
         )
     }
 
-    fun setSource(url: String, headers: Map<String, String>) {
+    private fun swapPlayer(preferExtension: Boolean) {
+        val old = player
+        val next = buildPlayer(preferExtension)
+        attachListener(next)
+        player = next
+        runCatching { old.release() }
+    }
+
+    fun setSource(url: String, headers: Map<String, String>, force: Boolean = false) {
         val u = url.trim()
         if (u.isBlank()) return
         val normalizedHeaders =
@@ -122,7 +158,7 @@ class MeowPlayerController(
                     }
                 }
 
-        if (u == lastUrl && normalizedHeaders == lastHeaders) return
+        if (!force && u == lastUrl && normalizedHeaders == lastHeaders) return
         lastUrl = u
         lastHeaders = normalizedHeaders
 
@@ -135,13 +171,15 @@ class MeowPlayerController(
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
         val mediaSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(u))
-        player.setMediaSource(mediaSource)
-        player.prepare()
-        player.playWhenReady = true
-        player.play()
+        player.apply {
+            setMediaSource(mediaSource)
+            prepare()
+            playWhenReady = true
+            play()
+        }
     }
 
     fun release() {
-        player.release()
+        runCatching { player.release() }
     }
 }
