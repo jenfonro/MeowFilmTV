@@ -72,6 +72,6 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.3.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.3.1")
-    implementation("androidx.media3:media3-exoplayer-ffmpeg:1.3.1")
+    implementation("androidx.media3:media3-decoder-ffmpeg:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
 }
