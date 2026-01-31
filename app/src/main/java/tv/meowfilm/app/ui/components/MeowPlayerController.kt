@@ -1,6 +1,7 @@
 package tv.meowfilm.app.ui.components
 
 import android.content.Context
+import android.os.Build
 import android.view.ViewGroup
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,7 +31,10 @@ class MeowPlayerController(
         IJK_SOFT,
     }
 
-    var engine by mutableStateOf(Engine.IJK_SOFT)
+    private val primaryAbi: String = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
+    private val ijkSupported: Boolean = !primaryAbi.startsWith("x86", ignoreCase = true)
+
+    var engine by mutableStateOf(if (ijkSupported) Engine.IJK_SOFT else Engine.MEDIA3)
         private set
 
     var stateText by mutableStateOf("idle")
@@ -161,7 +165,7 @@ class MeowPlayerController(
                         }
                     stateText = "error"
 
-                    if (looksLikeHevcCodecFailure && engine == Engine.MEDIA3) {
+                    if (looksLikeHevcCodecFailure && engine == Engine.MEDIA3 && ijkSupported) {
                         // Fall back to IJK software decoder if available.
                         switchTo(Engine.IJK_SOFT)
                         setSource(url = lastUrl, headers = lastHeaders, force = true)
