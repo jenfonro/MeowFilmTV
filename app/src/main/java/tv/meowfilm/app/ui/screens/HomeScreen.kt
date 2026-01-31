@@ -300,19 +300,19 @@ private fun CategoryPill(
 
     val bg =
         when {
-            selected -> Color(0x40FFFFFF)
-            else -> Color(0x1F0B0F14)
+            selected -> Color(0x1F0B0F14)
+            else -> Color(0x160B0F14)
         }
     val fg =
         when {
-            selected -> Color(0xFF0B0F14)
-            isFocused -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
-            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+            selected -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.94f)
+            isFocused -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.90f)
+            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.74f)
         }
     val border =
         when {
             isFocused -> BorderStroke(2.dp, Color.White.copy(alpha = 0.85f))
-            selected -> BorderStroke(2.dp, Color.White.copy(alpha = 0.75f))
+            selected -> BorderStroke(2.dp, Color.White.copy(alpha = 0.65f))
             else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
         }
 
@@ -334,8 +334,8 @@ private fun CategoryPill(
     ) {
         Text(
             modifier = Modifier
-                .height(46.dp)
-                .padding(horizontal = 18.dp, vertical = 12.dp),
+                .height(40.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             text = label,
             style = MaterialTheme.typography.titleMedium,
             color = fg,

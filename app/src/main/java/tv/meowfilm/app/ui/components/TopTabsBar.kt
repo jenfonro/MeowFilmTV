@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -62,7 +62,7 @@ fun TopTabsBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             tabs.forEachIndexed { idx, label ->
@@ -143,7 +143,7 @@ private fun TopTab(
 
     Box(
         modifier = Modifier
-            .widthIn(min = 74.dp)
+            .wrapContentWidth()
             .height(40.dp)
             .scale(scale)
             .onFocusChanged {
@@ -160,12 +160,12 @@ private fun TopTab(
                 }
             }
             .focusable()
-            .padding(horizontal = 4.dp),
-        contentAlignment = Alignment.BottomCenter,
+            .padding(horizontal = 2.dp),
+        contentAlignment = Alignment.BottomStart,
     ) {
         Column(
             modifier = Modifier.padding(bottom = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.Bottom,
         ) {
             Text(

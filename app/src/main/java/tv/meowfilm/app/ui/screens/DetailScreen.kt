@@ -191,6 +191,10 @@ fun DetailScreen(
         title,
         selectedSource.intValue,
         selectedEpisode.intValue,
+        selectedLine.intValue,
+        selectedRange.intValue,
+        showRawList,
+        descending,
         playLines,
         meowFilmStore.bootstrap,
     ) {
@@ -210,6 +214,7 @@ fun DetailScreen(
         val filtered = sliceEpisodeRange(list, selectedRange.intValue, size = 20)
         val ep = filtered.getOrNull(selectedEpisode.intValue) ?: return@LaunchedEffect
 
+        playRaw = ""
         val result =
             withContext(Dispatchers.IO) {
                 runCatching {
@@ -401,11 +406,40 @@ fun DetailScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
-                            text = "播放信息（play 返回）",
+                            text = "播放信息",
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White.copy(alpha = 0.95f),
                             maxLines = 1,
                         )
+
+                        val lineLabel = (playLines.getOrNull(selectedLine.intValue)?.flag).orEmpty().trim()
+                        if (lineLabel.isNotBlank()) {
+                            Text(
+                                text = "网盘源：$lineLabel",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White.copy(alpha = 0.88f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (playUrl.trim().isNotBlank()) {
+                            Text(
+                                text = "播放地址：${playUrl.trim()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.78f),
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (playError.trim().isNotBlank()) {
+                            Text(
+                                text = "错误：${playError.trim()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFFFB4AB),
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
 
                         val txt = playRaw.trim().ifBlank { "暂无数据" }
                         Surface(
